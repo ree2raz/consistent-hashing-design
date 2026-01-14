@@ -149,6 +149,41 @@ In Chaining (like Java’s `HashMap`), each slot is a pointer to a **Linked List
 | **Untrusted Public API** | SipHash + Chaining | Protects against HashDoS; scales better under heavy collision. |
 | **Embedded / IoT** | Open Addressing | Lower memory overhead (no extra pointers/nodes). |
 
-### Final Practical Tip
-
 In **Python**, because everything is an object (pointers), the `dict` implementation uses a very clever version of Open Addressing. In **Rust**, the standard `HashMap` uses **Control Bytes** (SIMD instructions) to check 16 buckets at once—taking the "Cache King" strategy to the extreme.
+
+### Key Takeaways for your Engineering Portfolio:
+
+- Chaining is easy to implement but punishes the CPU with random memory access (Cache Misses).
+  - The Mechanism: When the CPU needs data, it doesn't just grab 8 bytes. It grabs a 64-byte "Cache Line" from RAM and puts it into the L1 Cache.
+  - In Chaining, the "buckets" are usually Linked Lists. Each node in a linked list is allocated dynamically on the Heap. These nodes are scattered all over your RAM.
+  - The "Punishment": To traverse a chain of 3 items, the CPU has to:
+    - Look at the pointer in the main table (Fetch 1).
+    - Jump to a random RAM address for Node A (Fetch 2).
+    - Jump to another random RAM address for Node B (Fetch 3).
+  - Each "jump" to a random address is a potential Cache Miss, forcing the CPU to sit idle for hundreds of cycles while the RAM fetches the data.
+
+- Linear Probing is fast but suffers from "Clustering" — if one area gets busy, the whole table slows down. It has a "feedback loop" problem called Primary Clustering.
+    - The Mechanism: If a collision occurs at index 5, you check 6. If 6 is full, you check 7.
+    - The Logic of Failure: Imagine you have a cluster of occupied slots from index 5 to 9.
+      - Any new key that hashes to 5, 6, 7, 8, or 9 will all end up being placed at index 10.
+      - Now the cluster is 5 to 10.
+      - The probability of hitting index 10 just increased from $1/Size$ to $6/Size$.
+    - The Result: Clusters act like magnets. The larger a cluster gets, the faster it grows, leading to a massive "traffic jam" in one part of your array while other parts are empty. This turns your $O(1)$ lookup into a slow $O(n)$ crawl through the jam.
+
+- Robin Hood Hashing fixes the clustering problem of Linear Probing. By swapping elements so that everyone is roughly the same distance from their "home" slot, you ensure that "Key Not Found" searches (the most expensive kind) fail quickly.
+  - Robin Hood Hashing is essentially a "socialist" algorithm. It tries to minimize the variance of how far keys are from their original home.
+  - Why it fixes Clustering:
+    - In standard Linear Probing, the "first" person to arrive at a spot keeps it forever, even if someone else arrives later who is much further from home. In Robin Hood, if a "rich" element (one at its home index) is blocking a "poor" element (one 5 slots away from home), the poor element kicks the rich one out. By constantly re-shuffling to keep everyone's "Distance from Home" (DIB) roughly equal, you prevent long, contiguous chains from forming in one spot.
+  - Why "Key Not Found" is faster:
+    - This is the clever part. In standard Linear Probing, if you are looking for a key, you have to keep searching until you find it OR you hit an empty slot. If the table is 90% full, you might scan 50 items before finding an empty slot.
+    - In Robin Hood, you can stop much earlier using the "I am richer than you" rule:
+      - You are looking for Key X. You are currently at a probe distance of 3.
+      - You look at the current slot in the table. The element there has a probe distance of 1.
+      - Conclusion: If Key X were in this table, it would have kicked this element out (because 3 > 1). Since it hasn't, Key X definitely does not exist. You can stop the search immediately without ever reaching an empty slot.
+
+| Strategy | Performance Bottleneck | Logical Stopping Point |
+| --- | --- | --- |
+**Chaining**|RAM Latency (Pointer Chasing)|End of the linked list.
+**Linear Probing**|Algorithmic (Clustering)|Must find an empty slot.
+**Robin Hood**|Minimal (Sorted-ish Probing)|Stop when current DIB < your DIB.
+
