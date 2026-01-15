@@ -148,6 +148,19 @@ If you are building infrastructure for AI training or blockchain node discovery,
 
 ## 🏗 System Design Deep Dive
 
+### How did we find the imbalance in distribution of keys among servers ?
+
+Suppose first set of 10 cache nodes hold these numbers of keys: `[900, 1050, 980, 1010, 875, 1120, 950, 1025, 1085, 1005]`
+
+second set of 10 cache nodes hold these numbers of keys: `[10, 20, 30, 40, 50, 100, 200, 300, 400, 8850]`
+
+- Step 1: Mean
+    - Mean (average) load = 1000 keys per node for both set.
+    - Insight: scale and target. This tells you the typical load; if you add a new node, you want it to get roughly 1000 keys to be “fair.”
+- Step 2: Standard deviation
+    - Standard deviation (population) for these 10 values is about 73.1 keys.
+    - As a percentage of the mean, that is `73.1/1000~7.3%` and for second set the std is `2619.7 keys` or `~262%` which is highly imbalanced.
+
 ### 1. Why Virtual Nodes (VNodes)?
 
 * **Uniformity:** Prevents "hot spots" where one server owns a disproportionate slice of the ring.
