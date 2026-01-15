@@ -167,6 +167,13 @@ second set of 10 cache nodes hold these numbers of keys: `[10, 20, 30, 40, 50, 1
 * **Heterogeneity:** You can give powerful servers more VNodes (higher `weight`) to handle more traffic.
 * **Blast Radius:** If a node fails, its load is spread across the *entire* remaining cluster.
 
+#### The VNode "Shredder" Strategy
+- Virtual nodes (VNodes) solve this by "shredding" the identity of one server into many pieces. Instead of Server A being one point, we give it 100 "nicknames" (like Server_A_1, Server_A_2, etc.) and hash each one.
+- Now, instead of 3 big points on the circle, we have 300 tiny points scattered everywhere.
+- Why this kills hotspots:
+    - Statistical Smoothing: By spreading 100 points per server, the law of large numbers takes over. It’s highly unlikely that 100 points from Server A will all cluster together. They naturally fill the gaps, making each server's total "slice of the pie" roughly equal. 🥧
+    - Granular Handover: If Server A fails, its 100 VNodes disappear. Because those nodes were scattered, its load doesn't just dump onto one neighbor. Instead, it gets distributed across every other server in small, manageable chunks. 🖇️
+
 ### 2. The Replication Strategy 🛡️
 
 In production (e.g., Cassandra or DynamoDB), we don't just store data on *one* node. We store it on the first  distinct nodes encountered clockwise on the ring. This ensures **High Availability**.
